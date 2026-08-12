@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:list-style-type="http://www.w3.org/1999/xhtml" lang="ru"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<head>
+    <meta charset="UTF-8">
+    <title>Список пользователей</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark px-3 mb-0">
+    <div class="container-fluid">
+        <span class="navbar-text text-white">
+            <span sec:authentication="principal.email"></span>
+            with roles
+            <span sec:authentication="principal.authorities"></span>
+        </span>
+        <form th:action="@{/logout}" method="post" class="d-flex">
+            <button type="submit" class="btn btn-dark">Выйти</button>
+        </form>
+    </div>
+</nav>
+<div class="container1" style="display: flex; align-items: stretch;">
+    <aside class="sidebar" style="width: 220px; flex-shrink: 0; background-color: white;">
+        <nav class="sidebar__nav">
+            <ul class="menu-list" style="list-style: none; margin: 0; padding: 0;">
+                <li sec:authorize="hasRole('ADMIN')" style="width: 100%;"><a th:href="@{/admin}"
+                                                                             style="display: block; width: 100%; padding: 10px 0; text-align: center; text-decoration: none;  background-color: dodgerblue; color: white;">Admin</a>
+                </li>
+                <li style="width: 100%;"><a th:href="@{/user}"
+                                            style="display: block; width: 100%; padding: 10px 0; text-align: center; text-decoration: none; color: blue;">User</a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <div class="container-fluid" style="background-color: whitesmoke; min-height: 100vh; padding: 120px">
+        <h2>Панель администратора</h2>
+
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#allUsers">Все пользователи</a>
+            </li>
+            <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                <a class="nav-link" data-bs-toggle="tab" href="#newUser">Добавить пользователя</a>
+            </li>
+        </ul>
+
+        <div class="tab-content mt-3">
+
+            <div class="tab-pane fade show active" id="allUsers">
+
+                <table class="table table-striped table-hover table-bordered">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Имя</th>
+                        <th>Фамилия</th>
+                        <th>Возраст</th>
+                        <th>Email</th>
+                        <th sec:authorize="hasRole('ADMIN')">Редактировать</th>
+                        <th sec:authorize="hasRole('ADMIN')">Удалить</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+
+                    </tbody>
+                </table>
+
+                <div id="modalsContainer">
+
+                </div>
+
+            </div>
+            <div class="tab-pane fade" id="newUser">
+                <h3>Добавить нового пользователя</h3>
+                <div style="max-width: 500px; margin: 0 auto;">
+                    <form th:action="@{/admin}" method="post">
+                        <label class="fw-bold text-center d-block">Имя:</label>
+                        <input id="newUserName" type="text" class="form-control w-60 mx-auto"/>
+                        <label class="fw-bold text-center d-block">Фамилия:</label>
+                        <input id="newUserLastName" type="text" class="form-control w-60 mx-auto"/>
+                        <label class="fw-bold text-center d-block">Возраст:</label>
+                        <input id="newUserAge" type="number" class="form-control w-60 mx-auto"/>
+                        <label class="fw-bold text-center d-block">Email:</label>
+                        <input id="newUserEmail" type="email" class="form-control w-60 mx-auto"/>
+                        <label class="fw-bold text-center d-block">Пароль:</label>
+                        <input id="newUserPassword" type="password" class="form-control w-60 mx-auto"/>
+                        <label class="fw-bold text-center d-block">Роль:</label>
+                        <select class="form-select w-60 mx-auto" id="newUserRoles" multiple size="2">
+
+                        </select>
+                        <button type="submit" class="btn btn-success mt-3 d-block mx-auto">Добавить пользователя
+                        </button>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+
+    let allRoles = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        loadUsers();
+        loadRoles();
+    });
+
+    function loadUsers() {
+        fetch('/api/admin')
+            .then(response => response.json())
+            .then(users => {
+
+                renderUsersTable(users);
+            })
+            .catch(error => console.log('Ошибка загрузки пользователей: ', error));
+    }
+
+    function loadRoles() {
+        fetch('/api/roles')
+            .then(response => response.json())
+            .then(roles => {
+                allRoles = roles;
+                renderRolesTable(roles);
+            })
+            .catch(error => console.log(error));
+    }
+
+    function renderRolesTable(roles) {
+        const select = document.getElementById('newUserRoles');
+        select.innerHTML = ``;
+        roles.forEach(function (role) {
+            const option = document.createElement('option');
+            option.value = role.id;
+            option.textContent = role.name;
+            select.appendChild(option);
+
+        });
+    }
+
+    function renderUsersTable(users) {
+        const tbody = document.querySelector('table tbody');
+        tbody.innerHTML = '';
+        users.forEach(function (user) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+        <td>${user.id}</td>
+        <td>${user.firstName}</td>
+        <td>${user.lastName}</td>
+        <td>${user.age}</td>
+        <td>${user.email}</td>
+        <td><button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#editModal__${user.id}">Редактировать</button></td>
+<td><button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal__${user.id}">Удалить</button></td>
+        `;
+            tbody.appendChild(row);
+
+        });
+        renderModals(users);
+    }
+
+    function renderModals(users) {
+        const container = document.getElementById('modalsContainer');
+        container.innerHTML = '';
+        users.forEach(function (user) {
+            const modalWrapper = document.createElement('div');
+            modalWrapper.innerHTML = `
+            <div class="modal fade" id="deleteModal__${user.id}" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">Удалить пользователя</h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+<label class="text-center d-block"><strong>ID:</strong></label>
+<input type="text" value="${user.id}" class="form-control w-60 mx-auto" disabled />
+
+<label class="text-center d-block"><strong>Имя:</strong></label>
+<input type="text" value="${user.firstName}" class="form-control w-60 mx-auto" disabled />
+
+<label class="text-center d-block"><strong>Фамилия:</strong></label>
+<input type="text" value="${user.lastName}" class="form-control w-60 mx-auto" disabled />
+
+<label class="text-center d-block"><strong>Возраст:</strong></label>
+<input type="text" value="${user.age}" class="form-control w-60 mx-auto" disabled />
+
+<label class="text-center d-block"><strong>Email:</strong></label>
+<input type="text" value="${user.email}" class="form-control w-60 mx-auto" disabled />
+
+<label class="text-center d-block"><strong>Роль:</strong></label>
+<input type="text" value="${user.roles}" class="form-control w-60 mx-auto" disabled />
+
+</div>
+
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+<button type="button" class="btn btn-danger" data-user-id="${user.id}">Удалить</button>
+</div>
+</div>
+</div>
+</div>`;
+            container.appendChild(modalWrapper);
+
+            const deleteButton = modalWrapper.querySelector('.btn-danger');
+            deleteButton.addEventListener('click', function () {
+                const userId = this.getAttribute('data-user-id');
+                fetch(`/api/admin/${userId}`, {
+                    method: 'DELETE'
+                })
+                    .then(response => {
+                        if (response.ok) {
+
+                            const modal = bootstrap.Modal.getInstance(modalWrapper.querySelector('.modal'));
+                            modal.hide();
+
+                            loadUsers();
+                        } else {
+                            console.error('Ошибка при удалении пользователя');
+                        }
+                    })
+                    .catch(error => console.error('Ошибка при удалении пользователя: ', error));
+            })
+
+
+            const modalWrapper2 = document.createElement('div');
+            modalWrapper2.innerHTML = `<div class="modal fade" id="editModal__${user.id}" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">Редактировать пользователя</h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+<label class="text-center d-block"><strong>ID:</strong></label>
+<input type="text" value="${user.id}" class="form-control w-60 mx-auto" disabled />
+
+<label class="text-center d-block"><strong>Имя:</strong></label>
+<input type="text" value="${user.firstName}" id="editName__${user.id}" class="form-control w-60 mx-auto" />
+
+<label class="text-center d-block"><strong>Фамилия:</strong></label>
+<input type="text" value="${user.lastName}" id="editlastName__${user.id}" class="form-control w-60 mx-auto" />
+
+<label class="text-center d-block"><strong>Возраст:</strong></label>
+<input type="text" value="${user.age}" id="editAge__${user.id}" class="form-control w-60 mx-auto" />
+
+<label class="text-center d-block"><strong>Email:</strong></label>
+<input type="text" value="${user.email}" id="editEmail__${user.id}" class="form-control w-60 mx-auto" />
+
+<label class="text-center d-block"><strong>Роль:</strong></label>
+<select class="form-select w-60 mx-auto" id="editRoles__${user.id}" multiple size="2"></select>
+
+
+<label class="text-center d-block"><strong>Пароль:</strong></label>
+<input type="password" id="editPassword__${user.id}" class="form-control w-60 mx-auto" />
+
+</div>
+
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+<button type="button" class="btn btn-success" data-user-id="${user.id}">Сохранить</button>
+</div>
+</div>
+</div>
+</div>
+        `;
+            container.appendChild(modalWrapper2);
+
+
+            const editRolesSelect = document.getElementById(`editRoles__${user.id}`);
+            allRoles.forEach((role) => {
+                const option = document.createElement('option');
+                option.value = role.id;
+                option.textContent = role.name;
+                option.selected = user.roles.includes(role.name);
+                editRolesSelect.appendChild(option);
+            })
+
+            const editButton = modalWrapper2.querySelector('.btn-success');
+            editButton.addEventListener('click', function () {
+                const userId = this.getAttribute('data-user-id');
+                console.log(userId);
+
+                const rolesSelect = document.getElementById(`editRoles__${user.id}`);
+                const selectedRoles = Array.from(rolesSelect.selectedOptions).map(option => option.value);
+                const rolesForRequest = selectedRoles.map(roleId => ({id: Number(roleId)}));
+                console.log(rolesForRequest);
+
+
+                fetch(`/api/admin/${userId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: document.getElementById(`editName__${userId}`).value,
+                        lastName: document.getElementById(`editlastName__${userId}`).value,
+                        age: document.getElementById(`editAge__${userId}`).value,
+                        email: document.getElementById(`editEmail__${userId}`).value,
+                        password: document.getElementById(`editPassword__${userId}`).value,
+                        roles: rolesForRequest
+                    })
+                })
+                    .then(response => {
+                        if (response.ok) {
+
+                            const modal = bootstrap.Modal.getInstance(modalWrapper2.querySelector('.modal'));
+                            modal.hide();
+
+                            loadUsers();
+                        } else {
+                            console.error('Ошибка при удалении пользователя');
+                        }
+                    })
+                    .catch(error => console.error('Ошибка при обновлении пользователя: ', error));
+            })
+        })
+
+    }
+
+    const newUserForm = document.querySelector('#newUser form');
+    newUserForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const name = document.getElementById('newUserName').value;
+        const lastName = document.getElementById('newUserLastName').value;
+        const age = document.getElementById('newUserAge').value;
+        const email = document.getElementById('newUserEmail').value;
+        const password = document.getElementById('newUserPassword').value;
+        const rolesSelect = document.getElementById('newUserRoles');
+        const selectedRoles = Array.from(rolesSelect.selectedOptions).map(option => option.value);
+        const rolesForRequest = selectedRoles.map(roleId => ({id: Number(roleId)}));
+        console.log(rolesForRequest);
+        fetch('/api/admin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name,
+                lastName: lastName,
+                age: age,
+                email: email,
+                password: password,
+                roles: rolesForRequest
+            })
+        })
+            .then(response => {
+                if (response.ok) {
+                    newUserForm.reset();
+                    loadUsers();
+                } else {
+                    console.error('Ошибка при создании пользователя');
+                }
+            })
+            .catch(error => console.error('Ошибка при обновлении пользователя: ', error));
+
+
+    });
+
+
+</script>
+
+</body>
+
+
+</html>
